@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Google Drive File Upload</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Google Sign-In Button -->
+        <div id="signInContainer">
+            <div class="g_id_signin"></div>
+        </div>
+
+        <!-- File Input, Upload Button and Delete Button -->
+        <div id="fileInputContainer" style="display:none;">
+            <input type="file" id="fileInput" multiple>
+            <button id="uploadBtn" disabled>Upload</button>
+            <button id="deleteSelectedBtn" disabled>Delete Selected</button>
+        </div>
+
+        <!-- File List Display -->
+        <div id="fileList"></div>
+
+        <!-- Upload Status -->
+        <p id="uploadStatus"></p>
+    </div>
+
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="script.js"></script>
+</body>
+</html>
