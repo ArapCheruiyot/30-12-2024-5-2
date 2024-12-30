@@ -1,164 +1,94 @@
-// Step 1: Initialize Google Sign-In
 window.onload = () => {
+    // Initialize Google Sign-In
     window.google.accounts.id.initialize({
-        client_id: "147934510488-allie69121uoboqbr26nhql7u0205res.apps.googleusercontent.com", // Replace with your client ID
+        client_id: "147934510488-allie69121uoboqbr26nhql7u0205res.apps.googleusercontent.com",
         callback: handleCredentialResponse,
         scope: "https://www.googleapis.com/auth/drive.file"
     });
 
+    // Render Google Sign-In Button
     window.google.accounts.id.renderButton(
         document.querySelector(".g_id_signin"),
         { theme: "outline", size: "large" }
     );
 };
 
-// Step 2: Handle User Sign-In
+// Handle Google Sign-In Response
 function handleCredentialResponse(response) {
     const idToken = response.credential;
     console.log("Encoded JWT ID token:", idToken);
     alert("Sign-In successful!");
 
     window.localStorage.setItem("google_id_token", idToken);
-    document.getElementById("fileInputContainer").style.display = "inline-block";
+    document.getElementById("fileInput").style.display = "inline-block";
+    document.getElementById("uploadBtn").disabled = false;
 }
 
-// Step 3: Display Selected Files and Allow Highlighting
+// File Input Change Event
 const fileInput = document.getElementById("fileInput");
 const fileList = document.getElementById("fileList");
-const deleteSelectedBtn = document.getElementById("deleteSelectedBtn");
-
 let selectedFiles = [];
 
-fileInput.addEventListener("change", event => {
+fileInput.addEventListener("change", (event) => {
     fileList.innerHTML = ""; // Clear previous list
-    Array.from(event.target.files).forEach((file, index) => {
+    selectedFiles = Array.from(event.target.files); // Update selected files array
+    selectedFiles.forEach((file) => {
         const fileItem = document.createElement("div");
-        fileItem.classList.add("file-item");
-
-        // Display file name and make it clickable to highlight
-        const fileName = document.createElement("span");
-        fileName.textContent = file.name;
-        fileName.classList.add("file-name");
-        fileName.onclick = () => toggleFileSelection(fileItem, file);  // Toggle selection on click
-        fileItem.appendChild(fileName);
-
+        fileItem.className = "file-item";
+        fileItem.textContent = file.name;
+        fileItem.onclick = () => toggleFileSelection(fileItem);
         fileList.appendChild(fileItem);
     });
-
-    // Enable delete button if files are selected
-    if (fileList.querySelectorAll(".highlighted").length > 0) {
-        deleteSelectedBtn.disabled = false;
-    }
 });
 
-// Step 4: Handle File Upload
-const uploadBtn = document.getElementById("uploadBtn");
-const uploadStatus = document.getElementById("uploadStatus");
+// Toggle File Selection
+function toggleFileSelection(fileItem) {
+    fileItem.classList.toggle("highlighted");
+}
 
-uploadBtn.addEventListener("click", () => {
-    const files = fileInput.files;
-
-    if (!files.length) {
-        alert("Please select at least one file to upload.");
-        return;
-    }
-
-    const idToken = getIdToken();
+// Handle File Upload
+document.getElementById("uploadBtn").addEventListener("click", () => {
+    const idToken = window.localStorage.getItem("google_id_token");
     if (!idToken) {
         alert("Please sign in first.");
         return;
     }
 
-    Array.from(files).forEach(file => {
-        // Provide feedback to the user
-        uploadStatus.textContent = `Uploading ${file.name}...`;
-
-        // Upload file to Google Drive
+    selectedFiles.forEach((file) => {
         uploadFileToGoogleDrive(file, idToken);
     });
 });
 
-// Function to Upload File to Google Drive
+// Function to Upload Files to Google Drive
 function uploadFileToGoogleDrive(file, idToken) {
-    console.log("Preparing to upload:", file.name);
+    const uploadStatus = document.getElementById("uploadStatus");
+    uploadStatus.textContent = `Uploading ${file.name}...`;
 
-    // Create form data
     const formData = new FormData();
     formData.append("file", file);
 
-    // Send the file to Google Drive using the Google API
-    const uploadRequest = new XMLHttpRequest();
-    uploadRequest.open("POST", "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart");
-    uploadRequest.setRequestHeader("Authorization", `Bearer ${idToken}`);
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart");
+    xhr.setRequestHeader("Authorization", `Bearer ${idToken}`);
 
-    // Monitor upload progress
-    uploadRequest.upload.addEventListener("progress", event => {
+    xhr.upload.onprogress = (event) => {
         if (event.lengthComputable) {
-            const progress = (event.loaded / event.total) * 100;
-            uploadStatus.textContent = `Uploading: ${Math.round(progress)}%`;
+            const progress = Math.round((event.loaded / event.total) * 100);
+            uploadStatus.textContent = `Uploading ${file.name}: ${progress}%`;
         }
-    });
+    };
 
-    // Handle upload completion
-    uploadRequest.onload = () => {
-        if (uploadRequest.status === 200) {
-            console.log(`File "${file.name}" uploaded successfully.`);
-            uploadStatus.textContent = `File "${file.name}" uploaded successfully!`;
+    xhr.onload = () => {
+        if (xhr.status === 200) {
+            uploadStatus.textContent = `${file.name} uploaded successfully!`;
         } else {
-            console.error("File upload failed:", uploadRequest.statusText);
-            uploadStatus.textContent = `Error uploading file.`;
+            uploadStatus.textContent = `Failed to upload ${file.name}.`;
         }
     };
 
-    // Handle errors
-    uploadRequest.onerror = () => {
-        console.error("Request error:", uploadRequest.statusText);
-        uploadStatus.textContent = `Error uploading file.`;
+    xhr.onerror = () => {
+        uploadStatus.textContent = `Error uploading ${file.name}.`;
     };
 
-    // Send the file
-    uploadRequest.send(formData);
+    xhr.send(formData);
 }
-
-// Get ID Token from LocalStorage
-function getIdToken() {
-    return window.localStorage.getItem("google_id_token");
-}
-
-// Function to toggle file selection (highlight)
-function toggleFileSelection(fileItem, file) {
-    fileItem.classList.toggle("highlighted");
-
-    // Add or remove the file from the selectedFiles array based on whether it's highlighted
-    if (fileItem.classList.contains("highlighted")) {
-        selectedFiles.push(file);
-    } else {
-        selectedFiles = selectedFiles.filter(selectedFile => selectedFile !== file);
-    }
-}
-
-// Function to delete selected files
-deleteSelectedBtn.addEventListener("click", () => {
-    if (selectedFiles.length === 0) {
-        alert("No files selected for deletion.");
-        return;
-    }
-
-    if (!confirm("Are you sure you want to delete the selected files?")) {
-        return;
-    }
-
-    // Remove the selected files from the file input list and update UI
-    selectedFiles.forEach(file => {
-        const fileItems = document.querySelectorAll(".file-item");
-        fileItems.forEach(fileItem => {
-            if (fileItem.textContent === file.name) {
-                fileItem.remove();  // Remove the file item from the list
-            }
-        });
-    });
-
-    // Clear the selected files array and reset the input
-    selectedFiles = [];
-    fileInput.value = ""; // Clear file input
-});
